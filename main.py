@@ -1,6 +1,5 @@
 import os, tempfile, subprocess
 from fastapi import FastAPI, HTTPException, UploadFile, File
-from pydantic import BaseModel
 import boto3
 
 app = FastAPI()
@@ -13,6 +12,8 @@ async def process_video(file: UploadFile = File(...)):
     tmp_in = tempfile.mktemp(suffix=".mp4")
     with open(tmp_in, "wb") as f:
         f.write(await file.read())
+        
+    print(f"Input video saved to {tmp_in}")
 
     # 2) Run your pipeline (assumes pipeline.py in root)
     tmp_out = tempfile.mktemp(suffix=".mp4")
