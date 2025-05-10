@@ -1,5 +1,6 @@
-import os, tempfile, subprocess
+# app/main.py
 from fastapi import FastAPI, HTTPException, UploadFile, File
+import os, tempfile, subprocess
 import boto3
 
 app = FastAPI()
@@ -8,26 +9,27 @@ BUCKET = os.getenv("S3_BUCKET")
 
 @app.post("/process/")
 async def process_video(file: UploadFile = File(...)):
-    # 1) Save upload locally
-    tmp_in = tempfile.mktemp(suffix=".mp4")
-    with open(tmp_in, "wb") as f:
+    # 1) Save upload to a temp file
+    suffix = os.path.splitext(file.filename)[1]
+    in_tmp = tempfile.mktemp(suffix=suffix)
+    with open(in_tmp, "wb") as f:
         f.write(await file.read())
-        
-    print(f"Input video saved to {tmp_in}")
 
-    # 2) Run your pipeline (assumes pipeline.py in root)
-    tmp_out = tempfile.mktemp(suffix=".mp4")
-    ret = subprocess.run(
-        ["python", "pipeline.py", "--input", tmp_in, "--output", tmp_out],
-        capture_output=True,
-    )
-    if ret.returncode != 0:
-        raise HTTPException(500, detail=ret.stderr.decode())
+    # 2) Run your pipeline
+    out_tmp = tempfile.mktemp(suffix=f"_proc{suffix}")
+    cmd = ["python", "pipeline.py", "--input", in_tmp, "--output", out_tmp]
+    proc = subprocess.run(cmd, capture_output=True)
+    if proc.returncode != 0:
+        raise HTTPException(500, detail=proc.stderr.decode())
 
-    # 3) Upload result to S3
-    key_out = f"output_videos/{file.filename}"
-    s3.upload_file(tmp_out, BUCKET, key_out)
+    # 3) Upload only the processed video
+    out_key = f"output_videos/{os.path.basename(out_tmp)}"
+    s3.upload_file(out_tmp, BUCKET, out_key)
+
+    # 4) Return a presigned GET URL
     url = s3.generate_presigned_url(
-        "get_object", Params={"Bucket": BUCKET, "Key": key_out}, ExpiresIn=3600
+        "get_object",
+        Params={"Bucket": BUCKET, "Key": out_key},
+        ExpiresIn=3600,
     )
-    return {"videoUrl": url}
+    return {"outputUrl": url}
