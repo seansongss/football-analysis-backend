@@ -7,8 +7,15 @@ app = FastAPI()
 s3 = boto3.client("s3")
 BUCKET = os.getenv("S3_BUCKET")
 
+@app.post("/testing/")
+async def testing():
+    return {"outputUrl": "testing succeed"}
+    
+
 @app.post("/process/")
 async def process_video(file: UploadFile = File(...)):
+    if not file:
+        return {"outputUrl": "testing succeed"}
     # 1) Save upload to a temp file
     suffix = os.path.splitext(file.filename)[1]
     in_tmp = tempfile.mktemp(suffix=suffix)
