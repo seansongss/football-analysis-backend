@@ -2,14 +2,16 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 import os, tempfile, subprocess
 import boto3
+from settings import settings
 
 app = FastAPI()
 s3 = boto3.client("s3")
-BUCKET = os.getenv("S3_BUCKET")
+BUCKET = settings.S3_BUCKET
 
 @app.post("/testing/")
 async def testing():
-    return {"outputUrl": "testing succeed"}
+    print("bucket name:" + BUCKET)
+    return {"outputUrl": BUCKET}
     
 
 @app.post("/process/")
