@@ -8,11 +8,15 @@ app = FastAPI()
 s3 = boto3.client("s3")
 BUCKET = settings.S3_BUCKET
 
-@app.post("/testing/")
+@app.get("/testing/")
 async def testing():
     print("bucket name:" + BUCKET)
     return {"outputUrl": BUCKET}
-    
+
+@app.get("/buckets/")
+async def list_buckets():
+    names = [b["Name"] for b in s3.list_buckets()["Buckets"]]
+    return {"buckets": names}
 
 @app.post("/process/")
 async def process_video(file: UploadFile = File(...)):
