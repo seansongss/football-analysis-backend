@@ -1,17 +1,18 @@
 # app/main.py
 from fastapi import FastAPI, HTTPException, UploadFile, File
-import os, tempfile, subprocess
+import os, tempfile
 import boto3
 from settings import settings
+from pipeline import run_pipeline
+import anyio
 
 app = FastAPI()
 s3 = boto3.client("s3")
 BUCKET = settings.S3_BUCKET
 
-@app.get("/testing/")
-async def testing():
-    print("bucket name:" + BUCKET)
-    return {"outputUrl": BUCKET}
+@app.get("/debug-bucket")
+def debug_bucket():
+    return {"BUCKET": BUCKET}
 
 @app.get("/buckets/")
 async def list_buckets():
@@ -29,11 +30,11 @@ async def process_video(file: UploadFile = File(...)):
         f.write(await file.read())
 
     # 2) Run your pipeline
-    out_tmp = tempfile.mktemp(suffix=f"_proc{suffix}")
-    cmd = ["python", "pipeline.py", "--input", in_tmp, "--output", out_tmp]
-    proc = subprocess.run(cmd, capture_output=True)
-    if proc.returncode != 0:
-        raise HTTPException(500, detail=proc.stderr.decode())
+    out_tmp = tempfile.mktemp(suffix=f"_proc.mp4")
+    try:
+        await anyio.to_thread.run_sync(run_pipeline, in_tmp, out_tmp)
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
 
     # 3) Upload only the processed video
     out_key = f"output_videos/{os.path.basename(out_tmp)}"
